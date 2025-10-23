@@ -1,0 +1,273 @@
+/* [project]/public/index.css [app-client] (css) */
+:root {
+  --bg: #0f172a;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --card: #1e293b;
+  --border: #334155;
+  --accent: #3b82f6;
+  --accent-2: #1e3a8a;
+  --ok: #10b981;
+  --err: #ef4444;
+  --radius: 14px;
+  --shadow: 0 10px 24px #00000080, 0 2px 6px #0006;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--text);
+  background: var(--bg);
+  font-family: Inter, system-ui, Segoe UI, Arial;
+}
+
+header {
+  border-bottom: 1px solid var(--border);
+  background: radial-gradient(1200px 300px at 10% -20%, #1e3a8a33 0%, #0000 60%), radial-gradient(900px 300px at 90% -20%, #b91c1c33 0%, #0000 60%), linear-gradient(#1e293b, #0f172a);
+}
+
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.bar {
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  display: flex;
+}
+
+h1 {
+  letter-spacing: .2px;
+  margin: 0;
+  font-size: 20px;
+}
+
+.sub {
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.right {
+  margin-left: auto;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin: 16px 0;
+  padding: 16px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  display: flex;
+}
+
+.grid {
+  gap: 12px;
+  display: grid;
+}
+
+.col2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+input[type="text"], input[type="url"], textarea {
+  border: 1px solid var(--border);
+  width: 100%;
+  color: var(--text);
+  background: #0f172a;
+  border-radius: 12px;
+  outline: none;
+  padding: 10px 12px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.btn {
+  appearance: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px #3b82f640;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+}
+
+.btn.secondary {
+  color: #e2e8f0;
+  box-shadow: none;
+  border: 1px solid var(--border);
+  background: #1e293b;
+}
+
+.btn.ghost {
+  color: #e2e8f0;
+  border: 1px solid var(--border);
+  box-shadow: none;
+  background: none;
+}
+
+.btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.status {
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: #1e293b;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.status.ok {
+  color: #a7f3d0;
+  background: #064e3b;
+  border-color: #065f46;
+}
+
+.status.err {
+  color: #fecaca;
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+
+.sep {
+  background: var(--border);
+  height: 1px;
+  margin: 12px 0;
+}
+
+.list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.pill {
+  border: 1px solid var(--border);
+  color: #f1f5f9;
+  background: #334155;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.tc {
+  border: 1px solid var(--border);
+  background: #1e293b;
+  border-radius: 12px;
+  margin: 10px 0;
+  padding: 12px;
+}
+
+.tc h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.tc .meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tc .act {
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  display: flex;
+}
+
+.tc .link {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.toast {
+  color: #fff;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  transition: all .25s;
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  transform: translateY(8px);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast.ok {
+  background: #065f46;
+}
+
+.toast.err {
+  background: #991b1b;
+}
+
+.spinner {
+  border: 2px solid #fff3;
+  border-left-color: #fff;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: .7s linear infinite spin;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+footer {
+  color: var(--muted);
+  text-align: center;
+  padding: 18px 0 26px;
+  font-size: 12px;
+}
+
+/*# sourceMappingURL=public_index_css_bad6b30c._.single.css.map*/
