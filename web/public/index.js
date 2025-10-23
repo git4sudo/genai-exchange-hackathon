@@ -1,3 +1,13 @@
+const API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+
+const API = API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL;
+
+if (!API) {
+  console.error(
+    "API base URL is not set. Please set the API_BASE environment variable."
+  );
+}
+
 /* ----------- Utilities ----------- */
 const HEALTH = document.getElementById("health");
 const SUMMARY = document.getElementById("summary");
@@ -27,7 +37,7 @@ function setBusy(btn, on) {
 
 function baseUrl() {
   // always use the injected env variable
-  return window.API_BASE?.trim().replace(/\/+$/, "") || "";
+  return API_BASE?.trim().replace(/\/+$/, "") || "";
 }
 
 function showSummary(text) {

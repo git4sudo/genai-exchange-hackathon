@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import { healthCheck, API_BASE } from "@/utils/api";
 
-
 export default function Home() {
-
-   const [apiHealthy, setApiHealthy] = useState(false);
-     useEffect(() => {
-    healthCheck().then(ok => setApiHealthy(ok));
+  const [apiHealthy, setApiHealthy] = useState(false);
+  useEffect(() => {
+    healthCheck().then((ok) => setApiHealthy(ok));
   }, []);
 
   useEffect(() => {
@@ -49,15 +47,17 @@ export default function Home() {
 
         <main className="wrap" style={{ padding: "16px 0 24px" }}>
           {/* API Section */}
-<section className="card">
-  <div className="title">Backend Status</div>
-  <div>
-    {apiHealthy
-      ? <span className="status success">Connected ✓</span>
-      : <span className="status error">Offline ✗</span>}
-    <div className="hint">Connected to: {API_BASE}</div>
-  </div>
-</section>
+          <section className="card">
+            <div className="title">Backend Status</div>
+            <div>
+              {apiHealthy ? (
+                <span className="status success">Connected ✓</span>
+              ) : (
+                <span className="status error">Offline ✗</span>
+              )}
+              <div className="hint">Connected to: {API_BASE}</div>
+            </div>
+          </section>
 
           {/* Generate by Text */}
           <section className="card">

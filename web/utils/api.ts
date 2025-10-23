@@ -1,14 +1,19 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
-export async function healthCheck() {
+let API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+
+export const setApiBase = (url: string) => {
+  API_BASE = url;
+};
+
+export const getApiBase = () => API_BASE;
+
+export async function healthCheck(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`);
-    if (!res.ok) throw new Error("Health check failed");
-    const data = await res.text();
-    console.log("✅ Backend connected:", data);
-    return true;
-  } catch (err) {
-    console.error("❌ Backend unreachable:", err);
+    return res.ok;
+  } catch {
     return false;
   }
 }
+
+export { API_BASE };
