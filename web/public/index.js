@@ -1,6 +1,6 @@
-const API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+// const API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
 
-const API = API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL;
+const API = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 if (!API) {
   console.error(

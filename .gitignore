@@ -111,7 +111,6 @@ Desktop.ini
 .env
 .env.*
 *.key
-*.json
 firebase-deployer-key.json
 service-account.json
 
