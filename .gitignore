@@ -1,4 +1,6 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
 *.py[cod]
 *.pyo
@@ -24,7 +26,7 @@ poetry.lock
 poetry.toml
 
 # Jupyter / IPython
-.ipynb_checkpoints
+.ipynb_checkpoints/
 *.ipynb
 
 # Logs
@@ -41,20 +43,34 @@ htmlcov/
 .cache/
 .pytest_cache/
 
-# Node / npm
+# -----------------------------
+# Node / Next.js
+# -----------------------------
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Build artifacts
-dist/
+# Next.js build artifacts
+.next/
+out/
 build/
+dist/
 *.tar.gz
-*.egg-info
 
+# Vercel / Firebase (if used)
+.vercel/
+web/.firebase/
+web/.firebaserc
+web/.firebaserc.json
+
+# Maps / source maps
+web/public/*.map
+
+# -----------------------------
 # Docker
+# -----------------------------
 *.pid
 *.pid.lock
 *.seed
@@ -63,7 +79,9 @@ build/
 .dockerignore
 Dockerfile~
 
-# IDE / Editor settings
+# -----------------------------
+# IDE / Editor
+# -----------------------------
 .vscode/
 .idea/
 *.swp
@@ -72,18 +90,24 @@ Dockerfile~
 *.tmp
 *~
 
+# -----------------------------
 # OS files
+# -----------------------------
 Thumbs.db
 ehthumbs.db
 .DS_Store
 Desktop.ini
 
+# -----------------------------
 # Firebase / Cloud
+# -----------------------------
 .firebaserc
 .firebase/
 .firebase-tools-cache/
 
-# Local environment
+# -----------------------------
+# Local environment / secrets
+# -----------------------------
 .env
 .env.*
 *.key
@@ -95,8 +119,8 @@ service-account.json
 *.tar
 *.tgz
 
-# Frontend build
-web/.firebase/
-web/.firebaserc
-web/.firebaserc.json
-web/public/*.map
+# -----------------------------
+# Miscellaneous / temp
+# -----------------------------
+*.seed
+*.cover
