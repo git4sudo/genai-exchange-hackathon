@@ -9,10 +9,14 @@ __turbopack_context__.s([
     ()=>getApiBase,
     "healthCheck",
     ()=>healthCheck,
+    "login",
+    ()=>login,
     "setApiBase",
-    ()=>setApiBase
+    ()=>setApiBase,
+    "signup",
+    ()=>signup
 ]);
-let API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+const API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
 const setApiBase = (url)=>{
     API_BASE = url;
 };
@@ -26,6 +30,44 @@ async function healthCheck() {
     }
 }
 ;
+const signup = async (data)=>{
+    try {
+        const res = await fetch(`${API_BASE}/signup`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || "Signup failed");
+        }
+        return res.json();
+    } catch (err) {
+        console.error("Signup error:", err);
+        throw err;
+    }
+};
+const login = async (data)=>{
+    try {
+        const res = await fetch(`${API_BASE}/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || "Login failed");
+        }
+        return res.json();
+    } catch (err) {
+        console.error("Login error:", err);
+        throw err;
+    }
+};
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }

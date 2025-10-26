@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Expose backend URL globally to browser scripts */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.API_BASE = "${process.env.NEXT_PUBLIC_API_BASE_URL}";`,
+            __html: `window.API_BASE = "${"https://orbit-api-938180057345.us-central1.run.app"}";`,
           }}
         />
       </body>
