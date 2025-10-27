@@ -10,6 +10,7 @@
     "export": "next build && next export"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "firebase": "^12.4.0",
     "firebase-admin": "^13.5.0",
     "framer-motion": "^12.23.24",
