@@ -34,7 +34,7 @@ export default function ResultCards({ testCases }: Props) {
             <div className="act">
               {tc.req_id ? (
                 <Link
-                  href={`/traceability/${tc.req_id}`}
+                  href={`/traceability/${tc.req_id}?test_id=${tc.test_id}`}
                   className="btn ghost"
                   prefetch={false}
                 >

@@ -1,7 +1,7 @@
 // utils/api.ts
 import type { LastResult, TestCase } from "@/utils/api";
 
-let API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+let API_BASE = "http://127.0.0.1:8000";
 
 export const setApiBase = (url: string): void => {
   API_BASE = url;
@@ -24,10 +24,7 @@ export async function healthCheck(): Promise<boolean> {
 /**
  * Generic function for handling JSON POST requests.
  */
-async function postJson<T>(
-  endpoint: string,
-  payload: unknown
-): Promise<T> {
+async function postJson<T>(endpoint: string, payload: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}/${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -51,14 +48,18 @@ async function postJson<T>(
 /**
  * User signup endpoint.
  */
-export const signup = async (data: Record<string, string>): Promise<LastResult> => {
+export const signup = async (
+  data: Record<string, string>
+): Promise<LastResult> => {
   return postJson<LastResult>("signup", data);
 };
 
 /**
  * User login endpoint.
  */
-export const login = async (data: Record<string, string>): Promise<LastResult> => {
+export const login = async (
+  data: Record<string, string>
+): Promise<LastResult> => {
   return postJson<LastResult>("login", data);
 };
 

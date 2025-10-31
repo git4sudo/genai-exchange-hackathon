@@ -1,7 +1,7 @@
 // utils/api.ts
 import type { LastResult, TestCase } from "./types";
 
-let API_BASE = "https://orbit-api-938180057345.us-central1.run.app";
+let API_BASE = "http://127.0.0.1:8000";
 
 export const setApiBase = (url: string): void => {
   API_BASE = url;

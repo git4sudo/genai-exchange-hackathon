@@ -22,12 +22,10 @@ export default function FileUploader({ setResults, showToast }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `${
-          "https://orbit-api-938180057345.us-central1.run.app"
-        }/ingest`,
-        { method: "POST", body: fd }
-      );
+      const res = await fetch(`${"http://127.0.0.1:8000"}/ingest`, {
+        method: "POST",
+        body: fd,
+      });
       if (!res.ok) throw new Error(await res.text());
       const data: LastResult = await res.json();
       setResults(data);

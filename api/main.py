@@ -1,4 +1,4 @@
-import os, json, uuid, re
+import os, json, uuid, re, logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import traceability
 import requests
-
+import difflib
 # Vertex AI / BigQuery
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
@@ -19,32 +19,34 @@ from docx import Document
 from io import BytesIO
 
 # -------------------- Config --------------------
-PROJECT_ID   = os.getenv("PROJECT_ID", "orbit-ai-472708")
-LOCATION     = os.getenv("LOCATION", "us-central1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "gemini-2.0-flash-001")
-DATASET      = os.getenv("DATASET", "orbit_ai_poc")
-PROMPT_PATH  = os.getenv("PROMPT_PATH", "prompts/prompt_poc_v1.txt")
-PROMPT_VER   = os.getenv("PROMPT_VERSION", "poc-v1")
-CREATED_BY   = os.getenv("CREATED_BY", "demo@orbit-ai")
+PROJECT_ID = os.getenv("PROJECT_ID", "orbit-ai-472708")
+LOCATION = os.getenv("LOCATION", "us-central1")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.0-flash-001")
+DATASET = os.getenv("DATASET", "orbit_ai_poc")
+PROMPT_PATH = os.getenv("PROMPT_PATH", "prompts/prompt_poc_v1.txt")
+PROMPT_VER = os.getenv("PROMPT_VERSION", "poc-v1")
+CREATED_BY = os.getenv("CREATED_BY", "demo@orbit-ai")
 
-# Jira (set these in Cloud Run env)
-JIRA_BASE = os.getenv("JIRA_BASE")                 # e.g. https://your-site.atlassian.net
-JIRA_USER = os.getenv("JIRA_USER")                 # Atlassian account email
-JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")       # API token from https://id.atlassian.com
-JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")   # e.g. TEST
-JIRA_ISSUE_TYPE = os.getenv("JIRA_ISSUE_TYPE", "Task")  # "Task" works on free plan
+TABLE_REQ = f"{PROJECT_ID}.{DATASET}.requirements"
+TABLE_TC = f"{PROJECT_ID}.{DATASET}.generated_testcases"
+TABLE_TRL = f"{PROJECT_ID}.{DATASET}.trace_links"
 
-# Tables / Views
-TABLE_REQ  = f"{PROJECT_ID}.{DATASET}.requirements"
-TABLE_TC   = f"{PROJECT_ID}.{DATASET}.generated_testcases"
-TABLE_TRL  = f"{PROJECT_ID}.{DATASET}.trace_links"
+# Jira
+JIRA_BASE = os.getenv("JIRA_BASE")
+JIRA_USER = os.getenv("JIRA_USER")
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
+JIRA_ISSUE_TYPE = os.getenv("JIRA_ISSUE_TYPE", "Task")
 
 # -------------------- Lazy Clients --------------------
 _bq = None
 _vertex_ready = False
 
+log = logging.getLogger("orbit-trace")
+logging.basicConfig(level=logging.DEBUG)
+
 def now_ts() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 def get_bq():
     global _bq
@@ -58,14 +60,15 @@ def ensure_vertex():
         vertexai.init(project=PROJECT_ID, location=LOCATION)
         _vertex_ready = True
 
-# -------------------- FastAPI App --------------------
-app = FastAPI(title="Orbit AI Test Case Generator API", version="0.3")
-
-# Open CORS for PoC; restrict to your web origin later
+# -------------------- FastAPI --------------------
+origins = [
+    "http://localhost:3000",  # frontend (Next.js local)
+    "http://127.0.0.1:3000",  # just in case
+]
+app = FastAPI(title="Orbit AI Test Case Generator API", version="0.4")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -75,29 +78,64 @@ def load_prompt() -> str:
     try:
         with open(PROMPT_PATH, "r", encoding="utf-8") as f:
             return f.read()
-    except Exception:
-        # Minimal safe fallback
+    except Exception as e:
+        log.warning(f"Prompt file not found at {PROMPT_PATH}: {e}")
         return (
-            "You are an expert QA engineer for healthcare software.\n"
+            "You are an expert QA engineer.\n"
             "Requirement ID: {{req_id}}\n"
-            "Requirement Text:\n{{requirement_text}}\n\n"
-            "Return STRICT JSON with key 'test_cases' as an array. Each item has:\n"
-            "test_id, title, steps (array), expected_result, preconditions, severity,\n"
-            "compliance_tags (array), trace_link.\n"
+            "Requirement Text:\n{{requirement_text}}\n"
+            "Return STRICT JSON with 'test_cases' array."
         )
 
-def fill_prompt(template: str, req_id: str, text: str, compliance: Optional[List[str]] = None) -> str:
-    tip = ""
-    if compliance:
-        tip = "\nEmphasize compliance with: " + ", ".join(compliance) + \
-              ". Reflect this in severity, steps, expected results, and tags."
-    return template.replace("{{req_id}}", req_id).replace("{{requirement_text}}", text + tip)
+def extract_excerpt(requirement_text: str, tc_title: str) -> str:
+    """
+    Extract the most relevant 1–2 sentence excerpt from the requirement text for a given test case title.
+    Uses keyword and fuzzy matching to avoid returning the full document.
+    """
+    if not requirement_text.strip():
+        return ""
 
-def extract_json(text: str) -> str:
-    # Strip markdown fences and pull the first JSON object
-    cleaned = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE)
-    m = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
-    return m.group(0) if m else cleaned
+    # Normalize input
+    req = requirement_text.strip()
+    title = (tc_title or "").strip()
+
+    # Break into paragraphs or sentences
+    chunks = re.split(r"(?<=[.?!])\s+|\n{2,}", req)
+    chunks = [c.strip() for c in chunks if len(c.strip()) > 30]
+
+    # Try fuzzy match to find the best-matching chunk
+    best_chunk = ""
+    best_score = 0.0
+    for chunk in chunks:
+        score = difflib.SequenceMatcher(None, title.lower(), chunk.lower()).ratio()
+        if score > best_score:
+            best_score = score
+            best_chunk = chunk
+
+    # If a strong match found, return that paragraph
+    if best_chunk and best_score > 0.2:  # relaxed threshold
+        log.debug(f"extract_excerpt fuzzy match (score={best_score:.2f}) len={len(best_chunk)}")
+        return best_chunk[:600].strip()
+
+    # Otherwise try word-based regex search
+    title_words = [w for w in re.findall(r"\w+", title) if len(w) > 3]
+    if title_words:
+        pattern = "|".join(re.escape(w) for w in title_words)
+        m = re.search(pattern, req, flags=re.IGNORECASE)
+        if m:
+            start = max(0, m.start() - 120)
+            end = min(len(req), m.end() + 250)
+            excerpt = req[start:end].strip()
+            log.debug(f"extract_excerpt regex match len={len(excerpt)}")
+            return excerpt
+
+    # Fallback: first paragraph (limited to 400 chars)
+    paras = [p.strip() for p in req.split("\n\n") if p.strip()]
+    if paras:
+        return paras[0][:400].strip()
+
+    # Final fallback: first 300 chars
+    return req[:300].strip()
 
 def call_model(prompt: str) -> str:
     ensure_vertex()
@@ -109,10 +147,12 @@ def call_model(prompt: str) -> str:
     parts = resp.candidates[0].content.parts if resp.candidates else []
     return "".join(getattr(p, "text", "") for p in parts)
 
-def save_testcases(req_id: str, tcs: List[dict], project_id: Optional[str] = None) -> List[dict]:
+def save_testcases(req_id: str, tcs: List[dict], text: str) -> List[dict]:
     rows = []
     BASE_URL = "http://localhost:3000"
     for tc in tcs:
+        # Extract excerpt before saving
+        excerpt = tc.get("source_excerpt") or text[:300]
         rows.append({
             "test_id": tc.get("test_id") or "TEST-" + uuid.uuid4().hex[:8].upper(),
             "req_id": req_id,
@@ -122,15 +162,17 @@ def save_testcases(req_id: str, tcs: List[dict], project_id: Optional[str] = Non
             "preconditions": tc.get("preconditions") or "",
             "severity": tc.get("severity") or "Medium",
             "compliance_tags": tc.get("compliance_tags") or [
-                "IEC62304:SW_VER","ISO13485:DocCtrl","ISO27001:AccessCtrl"
+                "IEC62304:SW_VER", "ISO13485:DocCtrl", "ISO27001:AccessCtrl"
             ],
-            "trace_link" : tc.get("trace_link") or f"{BASE_URL}/traceability/{req_id}",
+            "trace_link": tc.get("trace_link") or f"{BASE_URL}/traceability/{req_id}",
+            "source_excerpt": excerpt,
             "model_version": MODEL_NAME,
             "prompt_version": PROMPT_VER,
             "created_at": now_ts(),
             "created_by": CREATED_BY,
-            "project_id": project_id or tc.get("project_id") or PROJECT_ID,
+            "project_id": tc.get("project_id", ""),  # optional
         })
+
     errs = get_bq().insert_rows_json(TABLE_TC, rows)
     if errs:
         raise HTTPException(500, f"BigQuery insert errors: {errs}")
@@ -144,8 +186,6 @@ def sniff_extract_text(filename: str, content: bytes) -> str:
     if name.endswith(".docx"):
         doc = Document(BytesIO(content))
         return "\n".join(p.text for p in doc.paragraphs)
-    if name.endswith(".md") or name.endswith(".txt"):
-        return content.decode("utf-8", errors="ignore")
     return content.decode("utf-8", errors="ignore")
 
 def upsert_requirement(req_id: str, title: str, text: str):
@@ -159,186 +199,161 @@ def upsert_requirement(req_id: str, title: str, text: str):
         "created_at": now_ts(),
         "created_by": CREATED_BY
     }]
-    errs = get_bq().insert_rows_json(TABLE_REQ, row)
-    if errs:
-        # ignore duplicates by req_id
-        msg = " ".join(str(e) for e in errs)
+    errors = get_bq().insert_rows_json(TABLE_REQ, row)
+    if errors:
+        msg = " ".join(str(e) for e in errors)
         if "duplicate" not in msg.lower():
-            raise HTTPException(500, f"Requirement upsert failed: {errs}")
-
-def save_trace_link(req_id: str, test_id: str, system: str, key: str, url: str):
-    rows = [{
-        "req_id": req_id,
-        "test_id": test_id,
-        "external_system": system,
-        "external_key": key,
-        "external_url": url,
-        "created_at": now_ts(),
-        "created_by": CREATED_BY,
-    }]
-    errs = get_bq().insert_rows_json(TABLE_TRL, rows)
-    if errs:
-        raise HTTPException(500, f"Trace insert failed: {errs}")
-
-# -------------------- Schemas --------------------
-class GenerateBody(BaseModel):
-    req_id: Optional[str] = None
-    text: Optional[str] = None
-    compliance: Optional[List[str]] = None
-    project_id: Optional[str] = None
-
-
-class PushBody(BaseModel):
-    req_id: str
-    test_id: str
-    summary: str
-    steps: Optional[List[str]] = None
-
-
-def build_adf_description(summary: str, steps: Optional[List[str]] = None, expected: Optional[str] = None) -> dict:
-    """
-    Build an Atlassian Document Format (ADF) description.
-    https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/
-    """
-    doc = {
-        "version": 1,
-        "type": "doc",
-        "content": []
-    }
-
-    # Summary paragraph
-    if summary:
-        doc["content"].append({
-            "type": "paragraph",
-            "content": [{"type": "text", "text": summary}]
-        })
-
-    # Steps list
-    if steps:
-        # Heading "Steps"
-        doc["content"].append({
-            "type": "heading",
-            "attrs": {"level": 3},
-            "content": [{"type": "text", "text": "Steps"}]
-        })
-        # Ordered list
-        ol = {"type": "orderedList", "attrs": {"order": 1}, "content": []}
-        for s in steps:
-            ol["content"].append({
-                "type": "listItem",
-                "content": [{
-                    "type": "paragraph",
-                    "content": [{"type": "text", "text": s}]
-                }]
-            })
-        doc["content"].append(ol)
-
-    if expected:
-        doc["content"].append({
-            "type": "heading",
-            "attrs": {"level": 3},
-            "content": [{"type": "text", "text": "Expected Result"}]
-        })
-        doc["content"].append({
-            "type": "paragraph",
-            "content": [{"type": "text", "text": expected}]
-        })
-
-    # Fallback if empty
-    if not doc["content"]:
-        doc["content"].append({"type": "paragraph", "content": [{"type": "text", "text": ""}]})
-
-    return doc
-
-
+            raise HTTPException(500, f"Requirement upsert failed: {errors}")
 
 # -------------------- Routes --------------------
 app.include_router(traceability.router)
+
 @app.get("/health")
 def health():
-    return {
-        "ok": True,
-        "project": PROJECT_ID,
-        "model": MODEL_NAME,
-        "bq": TABLE_TC,
-        "jira": bool(JIRA_BASE and JIRA_USER and JIRA_API_TOKEN and JIRA_PROJECT_KEY),
-    }
+    return {"ok": True, "model": MODEL_NAME, "bq": TABLE_TC}
 
-@app.post("/generate_unified")
-async def generate_unified(
-    text: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None),
-    link: Optional[str] = Form(None),
-    req_id: Optional[str] = Form(None),
-    title: Optional[str] = Form(None),
-    compliance: Optional[str] = Form(None)
-):
-    """
-    Unified endpoint for all input types:
-    - Text (manual)
-    - File upload (PDF/DOCX/TXT)
-    - Existing req_id
-    - Link / URL
-    """
-    extracted_text = ""
-    source_type = "manual"
-    
-    if file is not None:
-        content = await file.read()
-        extracted_text = sniff_extract_text(file.filename, content)
-        title = title or file.filename
-        source_type = "upload"
+@app.post("/generate")
+def generate(body: dict):
+    rid = (body.get("req_id") or f"REQ-{uuid.uuid4().hex[:6].upper()}").strip()
+    text = body.get("text", "").strip()
 
-    elif text:
-        extracted_text = text.strip()
-        source_type = "text"
-
-    elif link:
-        try:
-            resp = requests.get(link, timeout=10)
-            resp.raise_for_status()
-            raw = resp.text
-            cleaned = re.sub(r"<[^>]+>", "", raw)
-            extracted_text = cleaned.strip()
-            title = title or link
-            source_type = "link"
-        except Exception as e:
-            raise HTTPException(400, f"Failed to fetch or read link: {e}")
-
-    elif req_id:
+    if not text:
         job = get_bq().query(
-            f"SELECT text, title FROM `{TABLE_REQ}` WHERE req_id=@rid",
+            f"SELECT text FROM `{TABLE_REQ}` WHERE req_id=@rid",
             job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("rid", "STRING", req_id)]
+                query_parameters=[bigquery.ScalarQueryParameter("rid", "STRING", rid)]
             ),
         )
         row = next(iter(job.result()), None)
         if not row:
-            raise HTTPException(404, f"Requirement {req_id} not found")
-        extracted_text = (row["text"] or "").strip()
-        title = title or row.get("title") or "(Uploaded)"
-        source_type = "existing"
+            raise HTTPException(404, f"Requirement {rid} not found")
+        text = row["text"]
 
-    else:
-        raise HTTPException(400, "Please provide either 'text', 'file', 'link', or a valid 'req_id'.")
+    prompt = load_prompt().replace("{{req_id}}", rid).replace("{{requirement_text}}", text)
+    out = call_model(prompt)
 
-    if not extracted_text.strip():
-        raise HTTPException(400, "No text extracted or provided.")
+    try:
+        payload = json.loads(re.search(r"\{.*\}", out, re.DOTALL).group(0))
+    except Exception:
+        raise HTTPException(500, "Model did not return valid JSON")
 
-    comp_list = None
+    tcs = payload.get("test_cases", [])
+    if not tcs:
+        raise HTTPException(500, "No test_cases returned by model")
+
+    saved = save_testcases(rid, tcs, text)
+    return {"req_id": rid, "generated": len(saved), "test_cases": saved}
+
+@app.post("/ingest")
+async def ingest_requirement(file: UploadFile = File(...), title: Optional[str] = Form(None)):
+    content = await file.read()
+    text = sniff_extract_text(file.filename, content)
+    rid = f"REQ-{uuid.uuid4().hex[:6].upper()}"
+    upsert_requirement(rid, title or file.filename, text)
+
+    prompt = load_prompt().replace("{{req_id}}", rid).replace("{{requirement_text}}", text)
+    out = call_model(prompt)
+    payload = json.loads(re.search(r"\{.*\}", out, re.DOTALL).group(0))
+    tcs = payload.get("test_cases", [])
+
+    saved = save_testcases(rid, tcs, text)
+    return {"req_id": rid, "generated": len(saved), "test_cases": saved}
+def fill_prompt(template: str, req_id: str, text: str, compliance: Optional[List[str]] = None) -> str:
+    """
+    Fill the template prompt with requirement details and optional compliance tags.
+    """
+    tip = ""
     if compliance:
-        try:
-            comp_list = json.loads(compliance)
-        except Exception:
-            comp_list = None
+        tip = "\nEmphasize compliance with: " + ", ".join(compliance) + \
+              ". Reflect this in severity, steps, expected results, and tags."
 
+    return (
+        template
+        .replace("{{req_id}}", req_id)
+        .replace("{{requirement_text}}", text + tip)
+    )
+
+def extract_json(text: str) -> str:
+    """
+    Extract JSON object from model output.
+    Removes Markdown fences (```json ... ```) and returns the first valid JSON block.
+    """
+    import re
+
+    # Remove Markdown code fences if present
+    cleaned = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE)
+
+    # Extract the first JSON object using regex
+    match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    return match.group(0) if match else cleaned
+
+
+@app.post("/generate_unified")
+async def generate_unified(
+    files: Optional[List[UploadFile]] = None,
+    links: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    req_id: Optional[str] = Form(None),
+    title: Optional[str] = Form(None),
+    project_id: Optional[str] = Form(None),
+):
+    """
+    Unified endpoint for:
+    - Multiple file uploads (PDF/DOCX/TXT/MD)
+    - Multiple web links (as JSON array)
+    - Free-text description
+    - Optional project_id (links to user project history)
+    - Existing req_id (re-generation)
+    """
+    extracted_texts = []
+    source_type = "manual"
+
+    # ---- Handle uploaded files ----
+    if files:
+        for file in files:
+            content = await file.read()
+            extracted_text = sniff_extract_text(file.filename, content)
+            if extracted_text.strip():
+                extracted_texts.append(extracted_text)
+        source_type = "upload"
+
+    # ---- Handle links ----
+    if links:
+        try:
+            link_list = json.loads(links)
+            for link in link_list:
+                try:
+                    resp = requests.get(link, timeout=10)
+                    resp.raise_for_status()
+                    raw = resp.text
+                    cleaned = re.sub(r"<[^>]+>", "", raw)
+                    if cleaned.strip():
+                        extracted_texts.append(cleaned.strip())
+                except Exception as e:
+                    print(f"⚠️ Failed to read link {link}: {e}")
+            source_type = "link"
+        except Exception as e:
+            raise HTTPException(400, f"Invalid links JSON: {e}")
+
+    # ---- Handle free text ----
+    if description and description.strip():
+        extracted_texts.append(description.strip())
+        source_type = "text"
+
+    # ---- Validation ----
+    if not extracted_texts:
+        raise HTTPException(400, "No valid text provided from file, link, or description.")
+
+    combined_text = "\n\n".join(extracted_texts)
     rid = (req_id or f"REQ-{uuid.uuid4().hex[:6].upper()}").strip()
 
-    upsert_requirement(rid, title or "(Uploaded)", extracted_text)
+    # ---- Upsert requirement ----
+    upsert_requirement(rid, title or "(Unified Upload)", combined_text)
 
-    prompt = fill_prompt(load_prompt(), rid, extracted_text, comp_list)
-
+    # ---- Prepare LLM prompt ----
+    prompt = fill_prompt(load_prompt(), rid, combined_text)
     out = call_model(prompt)
+
     try:
         payload = json.loads(extract_json(out))
     except json.JSONDecodeError as e:
@@ -348,141 +363,35 @@ async def generate_unified(
     if not isinstance(tcs, list) or not tcs:
         raise HTTPException(500, "Model returned no test_cases")
 
-    saved = save_testcases(rid, tcs)
+    # ---- Extract focused excerpt ----
+    def extract_excerpt(requirement_text: str, tc_title: str) -> str:
+        if not requirement_text.strip():
+            return ""
+        words = [w for w in re.findall(r"\w+", tc_title) if len(w) > 3]
+        if words:
+            pattern = "|".join(re.escape(w) for w in words)
+            m = re.search(pattern, requirement_text, flags=re.IGNORECASE)
+            if m:
+                start = max(0, m.start() - 150)
+                end = min(len(requirement_text), m.end() + 200)
+                return requirement_text[start:end].strip()
+        # fallback to first paragraph
+        paras = [p.strip() for p in requirement_text.split("\n\n") if p.strip()]
+        return paras[0][:400] if paras else requirement_text[:300]
+
+    for tc in tcs:
+        tc["source_excerpt"] = extract_excerpt(combined_text, tc.get("title", ""))
+        if project_id:
+            tc["project_id"] = project_id  # link test case to project
+
+    saved = save_testcases(rid, tcs,combined_text)
 
     return {
         "ok": True,
         "req_id": rid,
-        "title": title or "(Uploaded)",
+        "title": title or "(Unified Upload)",
+        "project_id": project_id,
         "source_type": source_type,
         "generated": len(saved),
-        "test_cases": saved
+        "test_cases": saved,
     }
-
-
-
-@app.post("/generate")
-def generate(body: GenerateBody):
-    rid = (body.req_id or f"REQ-{uuid.uuid4().hex[:6].upper()}").strip()
-
-    if not body.text and body.req_id:
-        # fetch requirement text from BQ by req_id
-        job = get_bq().query(
-            f"SELECT text FROM `{TABLE_REQ}` WHERE req_id=@rid",
-            job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("rid", "STRING", body.req_id)]
-            ),
-        )
-        row = next(iter(job.result()), None)
-        if not row:
-            raise HTTPException(404, f"Requirement {body.req_id} not found")
-        text = (row["text"] or "").strip()
-        rid = body.req_id
-    else:
-        text = (body.text or "").strip()
-
-    if not text:
-        raise HTTPException(400, "Provide either 'text' or a valid 'req_id'.")
-
-    upsert_requirement(rid, f"Generated Requirement {rid}", text, project_id=body.project_id)
-
-    prompt = fill_prompt(load_prompt(), rid, text, body.compliance)
-    out = call_model(prompt)
-
-    try:
-        payload = json.loads(extract_json(out))
-    except json.JSONDecodeError as e:
-        raise HTTPException(500, f"Model output invalid JSON: {e}")
-
-    tcs = payload.get("test_cases", [])
-    if not isinstance(tcs, list) or not tcs:
-        raise HTTPException(500, "Model returned no test_cases")
-
-    saved = save_testcases(rid, tcs, project_id=body.project_id)
-    return {"req_id": rid, "generated": len(saved), "test_cases": saved}
-
-@app.post("/generate/{req_id}")
-def generate_by_id(req_id: str):
-    return generate(GenerateBody(req_id=req_id))
-
-@app.post("/ingest")
-async def ingest_requirement(
-    file: UploadFile = File(...),
-    title: Optional[str] = Form(None),
-    req_id: Optional[str] = Form(None),
-    compliance: Optional[str] = Form(None),
-    project_id: Optional[str] = Form(None), 
-):
-    content = await file.read()
-    text = sniff_extract_text(file.filename, content)
-    if not text.strip():
-        raise HTTPException(400, "No text extracted from file.")
-
-    rid = (req_id or f"REQ-{uuid.uuid4().hex[:6].upper()}").strip()
-    upsert_requirement(rid, title or file.filename, text, project_id=project_id)
-
-    comp_list = None
-    if compliance:
-        try:
-            comp_list = json.loads(compliance)
-        except Exception:
-            comp_list = None
-
-    prompt = fill_prompt(load_prompt(), rid, text, comp_list)
-    out = call_model(prompt)
-
-    try:
-        payload = json.loads(extract_json(out))
-    except json.JSONDecodeError as e:
-        raise HTTPException(500, f"Model output invalid JSON: {e}")
-
-    tcs = payload.get("test_cases", [])
-    if not isinstance(tcs, list) or not tcs:
-        raise HTTPException(500, "Model returned no test_cases")
-
-    saved = save_testcases(rid, tcs, project_id=project_id)
-    return {"req_id": rid, "generated": len(saved), "test_cases": saved, "title": title or file.filename}
-
-@app.post("/push/jira")
-def push_jira(body: PushBody):
-    # Validate config
-    if not (JIRA_BASE and JIRA_USER and JIRA_API_TOKEN and JIRA_PROJECT_KEY):
-        raise HTTPException(
-            500,
-            "Jira env vars missing. Set JIRA_BASE, JIRA_USER, JIRA_API_TOKEN, JIRA_PROJECT_KEY (and optional JIRA_ISSUE_TYPE)."
-        )
-
-    # Build ADF description (we don’t have expected here; you could extend PushBody to include it)
-    adf = build_adf_description(
-        summary=body.summary or f"Test Case {body.test_id}",
-        steps=body.steps or None,
-        expected=None
-    )
-
-    url = f"{JIRA_BASE}/rest/api/3/issue"
-    payload = {
-        "fields": {
-            "project": {"key": JIRA_PROJECT_KEY},
-            "summary": body.summary or f"Test Case {body.test_id}",
-            "description": adf,  # ADF document (required by v3)
-            "labels": ["orbit-ai", "test-case"],
-            "issuetype": {"name": JIRA_ISSUE_TYPE}  # "Task" works on free Jira
-        }
-    }
-
-    # Using basic auth (email + API token)
-    r = requests.post(
-        url,
-        json=payload,
-        auth=(JIRA_USER, JIRA_API_TOKEN),
-        headers={"Accept": "application/json", "Content-Type": "application/json"}
-    )
-    if r.status_code not in (200, 201):
-        raise HTTPException(500, f"Jira push failed: {r.text}")
-
-    data = r.json()
-    issue_key = data.get("key")
-    issue_url = f"{JIRA_BASE}/browse/{issue_key}"
-
-    save_trace_link(body.req_id, body.test_id, "Jira", issue_key, issue_url)
-    return {"ok": True, "external_key": issue_key, "external_url": issue_url}
