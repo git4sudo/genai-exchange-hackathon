@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import traceability
+from alm_azure import router as alm_azure_router
 import requests
 import difflib
 # Vertex AI / BigQuery
@@ -207,6 +208,7 @@ def upsert_requirement(req_id: str, title: str, text: str):
 
 # -------------------- Routes --------------------
 app.include_router(traceability.router)
+app.include_router(alm_azure_router)  # <-- ADD THIS
 
 @app.get("/health")
 def health():

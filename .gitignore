@@ -129,3 +129,18 @@ service-account.json
 # -----------------------------
 *.seed
 *.cover
+# env
+.env
+.env.local
+api/.env
+api/.env.local
+web/.env
+web/.env.local
+
+# python/node
+venv/
+.venv/
+__pycache__/
+node_modules/
+web/.next/
+web/out/

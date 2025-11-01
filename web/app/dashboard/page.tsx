@@ -11,7 +11,7 @@ import { Card, CardHeader, ResultItem, EmptyState } from "@/app/dashboard/compon
 import { useTestStore } from "@/app/store/testCaseStore";
 import { fetchTestCasesByProject } from "@/app/store/testCaseStore";
 import { useNotificationStore } from "@/app/store/notificationStore";
-
+import ALMIntegration from "@/app/dashboard/components/ALMIntegration";
 
 /* ========= Types ========= */
 interface TestCase {
@@ -28,7 +28,7 @@ interface GenerateResponse {
   generated: number;
   test_cases: TestCase[];
 }
-interface IngestResponse extends GenerateResponse { }
+interface IngestResponse extends GenerateResponse {}
 interface JiraResponse {
   external_url: string;
 }
@@ -44,10 +44,8 @@ export default function Dashboard() {
   const [freeText, setFreeText] = useState("");
   const [title, setTitle] = useState("");
   const [reqId, setReqId] = useState("");
-  // const [file, setFile] = useState<File | null>(null);
 
   const { testCases, setTestCases } = useTestStore();
-
 
   const [summary, setSummary] = useState("No results yet.");
 
@@ -60,14 +58,13 @@ export default function Dashboard() {
   const [hasStoredCases, setHasStoredCases] = useState(false);
   const [loadingStoredCases, setLoadingStoredCases] = useState(false);
   const jiraProjoctKey = searchParams.get("jiraProjectKey");
- 
+
   console.log(
     `Project Name:${projectName}, Description${pDescription}, ProjecctId:${projectId}, jiraProjectKey:${jiraProjoctKey}`
   );
 
   useEffect(() => {
     if (!projectId) {
-
       setTestCases([]);
       setSummary("No project selected.");
       setHasStoredCases(false);
@@ -88,8 +85,8 @@ export default function Dashboard() {
           Array.isArray(existing)
             ? existing
             : Array.isArray(existing?.test_cases)
-              ? existing.test_cases
-              : [];
+            ? existing.test_cases
+            : [];
 
         if (list.length > 0) {
           setSummary("Previously stored testcases found!");
@@ -159,8 +156,6 @@ export default function Dashboard() {
 
       setSummary(data.summary ?? "Generated successfully!");
 
-
-
       if (projectId) {
         const refreshed: any = await fetchTestCasesByProject(projectId);
 
@@ -168,8 +163,8 @@ export default function Dashboard() {
           Array.isArray(refreshed)
             ? refreshed
             : Array.isArray(refreshed?.test_cases)
-              ? refreshed.test_cases
-              : [];
+            ? refreshed.test_cases
+            : [];
 
         setTestCases(list);
         showNotification("Generated successfully!");
@@ -181,8 +176,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
-
 
   // Redirect if not logged in
   useEffect(() => {
@@ -207,12 +200,9 @@ export default function Dashboard() {
   // Downloads
   const downloadJSON = (): void => {
     if (!testCases.length) return alert("Nothing to download");
-    const blob = new Blob(
-      [JSON.stringify({ test_cases: testCases }, null, 2)],
-      {
-        type: "application/json",
-      }
-    );
+    const blob = new Blob([JSON.stringify({ test_cases: testCases }, null, 2)], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `generated-testcases.json`;
@@ -221,13 +211,7 @@ export default function Dashboard() {
 
   const downloadCSV = (): void => {
     if (!testCases.length) return alert("Nothing to download");
-    const headers = [
-      "req_id",
-      "test_id",
-      "title",
-      "severity",
-      "expected_result",
-    ];
+    const headers = ["req_id", "test_id", "title", "severity", "expected_result"];
     const lines = [headers.join(",")].concat(
       testCases.map((r) =>
         [r.req_id, r.test_id, r.title, r.severity, r.expected_result]
@@ -254,12 +238,8 @@ export default function Dashboard() {
     () =>
       [...testCases].sort(
         (a, b) =>
-          (severityOrder[
-            (a.severity as keyof typeof severityOrder) ?? "Unknown"
-          ] ?? 4) -
-          (severityOrder[
-            (b.severity as keyof typeof severityOrder) ?? "Unknown"
-          ] ?? 4)
+          (severityOrder[(a.severity as keyof typeof severityOrder) ?? "Unknown"] ?? 4) -
+          (severityOrder[(b.severity as keyof typeof severityOrder) ?? "Unknown"] ?? 4)
       ),
     [testCases]
   );
@@ -276,25 +256,20 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 text-slate-800">
-      {/* Top bar (light, like signup) */}
+      {/* Top bar */}
       <header className="sticky top-0 z-50 bg-[#0b1220] text-white shadow-[0_1px_0_rgba(255,255,255,0.06)]">
         <div className="mx-auto max-w-7xl px-4 py-4 flex items-center gap-4">
-          {/* Left: title */}
           <div className="leading-tight">
-            <h1 className="text-xl font-semibold text-white">
-              {/* Orbit AI — Test Case Generator */}
-              {projectName}
-            </h1>
+            <h1 className="text-xl font-semibold text-white">{projectName}</h1>
             <p className="text-sm text-slate-300">{description}</p>
           </div>
-
-          {/* Right: status + logout */}
           <div className="ml-auto flex items-center gap-3">
             <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${apiHealthy
-                ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/30"
-                : "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/30"
-                }`}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                apiHealthy
+                  ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/30"
+                  : "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/30"
+              }`}
             >
               {apiHealthy ? "Connected ✓" : "Offline ✗"}
             </span>
@@ -311,21 +286,11 @@ export default function Dashboard() {
               title="Upload Requirement Document"
               subtitle="PDF, DOCX, TXT or Markdown. Optionally add a title or REQ-ID."
             />
-
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Optional title"
-              />
-              <Input
-                value={reqId}
-                onChange={(e) => setReqId(e.target.value)}
-                placeholder="REQ-ID (optional)"
-              />
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Optional title" />
+              <Input value={reqId} onChange={(e) => setReqId(e.target.value)} placeholder="REQ-ID (optional)" />
             </div>
 
-            {/*Upload File Section*/}
             <input
               id="files"
               type="file"
@@ -338,16 +303,12 @@ export default function Dashboard() {
               htmlFor="files"
               className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm hover:bg-slate-50"
             >
-              <span className="truncate">
-                {files?.length
-                  ? `${files.length} file(s) selected`
-                  : "Choose File(s)"}
-              </span>
+              <span className="truncate">{files?.length ? `${files.length} file(s) selected` : "Choose File(s)"}</span>
               <span className="rounded-lg bg-emerald-600 px-3 px-3 py-1 text-xs text-white hover:bg-emerald-700">
                 Browse
               </span>
             </label>
-            
+
             {(files ?? []).length > 0 && (
               <ul className="mt-2 space-y-1 text-sm text-slate-600">
                 {Array.from(files!).map((file, index) => (
@@ -356,21 +317,16 @@ export default function Dashboard() {
                     className="flex items-center justify-between rounded-md border border-slate-100 bg-slate-50 px-3 py-1"
                   >
                     <span className="truncate">{file.name}</span>
-                    <span className="text-xs text-slate-400">
-                      {(file.size / 1024).toFixed(1)} KB
-                    </span>
+                    <span className="text-xs text-slate-400">{(file.size / 1024).toFixed(1)} KB</span>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
 
-          {/* Attach Link Section*/}
           <Card>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Reference Links
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Reference Links</label>
               <div className="flex gap-2">
                 <input
                   type="url"
@@ -391,12 +347,7 @@ export default function Dashboard() {
                 <ul className="mt-2 space-y-1 text-sm text-emerald-700">
                   {links.map((l, i) => (
                     <li key={i}>
-                      <a
-                        href={l}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline"
-                      >
+                      <a href={l} target="_blank" rel="noreferrer" className="hover:underline">
                         {l}
                       </a>
                     </li>
@@ -406,7 +357,6 @@ export default function Dashboard() {
             </div>
           </Card>
 
-          {/* Free Text Generate*/}
           <Card>
             <CardHeader
               title="Generate from Free Text"
@@ -432,44 +382,25 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Right column (compact until results; grows when they exist) */}
+        {/* Right column */}
         <aside className="space-y-6 lg:sticky lg:top-24 self-start">
           <Card className={hasResults ? "overflow-hidden" : ""}>
             <CardHeader
               title="Results"
-              subtitle={
-                !loadingStoredCases && hasResults
-                  ? `(${sorted.length}) ${summary ?? ""}`
-                  : summary
-              }
+              subtitle={!loadingStoredCases && hasResults ? `(${sorted.length}) ${summary ?? ""}` : summary}
             />
-
-
 
             <div className="mt-3 flex gap-2">
               <ButtonGhost onClick={downloadJSON}>Download JSON</ButtonGhost>
               <ButtonGhost onClick={downloadCSV}>Download CSV</ButtonGhost>
-
-              {/* Only show View All if not loading */}
               {!loadingStoredCases && hasResults && (
-                <ViewAllButton
-                  onClick={() => {
-                    router.push("/dashboard/view?fromDashboard=true");
-                  }}
-                >
+                <ViewAllButton onClick={() => router.push("/dashboard/view?fromDashboard=true")}>
                   View All
                 </ViewAllButton>
               )}
             </div>
 
-            <div
-              className={
-                hasResults
-                  ? "mt-4 overflow-y-auto pr-1 max-h-[calc(100vh-260px)]"
-                  : "mt-2"
-              }
-            >
-              {/* Loader state */}
+            <div className={hasResults ? "mt-4 overflow-y-auto pr-1 max-h-[calc(100vh-260px)]" : "mt-2"}>
               {loadingStoredCases ? (
                 <div className="flex flex-col items-center justify-center py-8 text-emerald-700">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-300 border-t-emerald-700"></div>
@@ -493,20 +424,20 @@ export default function Dashboard() {
             </div>
           </Card>
 
+          {/* NEW: ALM Integration card placed directly under Results */}
+          <ALMIntegration testCases={sorted} />
+
+          {/* Single pro tip (kept) */}
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
             Pro tip: keep one requirement per run for crisper, atomic test cases.
           </div>
         </aside>
-
       </main>
 
-      <footer className="py-8 text-center text-xs text-slate-500">
-        © Orbit AI
-      </footer>
+      <footer className="py-8 text-center text-xs text-slate-500">© Orbit AI</footer>
     </div>
   );
 }
-
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -558,30 +489,15 @@ function PrimaryButton({
   );
 }
 
-function ButtonGhost({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function ButtonGhost({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs hover:bg-slate-50"
-    >
+    <button onClick={onClick} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs hover:bg-slate-50">
       {children}
     </button>
   );
 }
 
-function ViewAllButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function ViewAllButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -591,6 +507,3 @@ function ViewAllButton({
     </button>
   );
 }
-
-
-
