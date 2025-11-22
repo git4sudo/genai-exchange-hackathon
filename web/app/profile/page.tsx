@@ -276,9 +276,9 @@ export default function ProfilePage() {
                   className="mt-4 space-y-3 overflow-hidden"
                   onSubmit={handleSaveAzure}
                 >
-                  <input
+                  {/* <input
                     type="text"
-                    placeholder="Tenant ID"
+                    placeholder="Azure Organization/Tenant ID"
                     value={azureCreds.tenantId}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, tenantId: e.target.value })
@@ -287,16 +287,16 @@ export default function ProfilePage() {
                   />
                   <input
                     type="text"
-                    placeholder="Client ID"
+                    placeholder="Project/Client ID"
                     value={azureCreds.clientId}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, clientId: e.target.value })
                     }
                     className="w-full rounded-lg border p-2 text-sm"
-                  />
+                  /> */}
                   <input
                     type="password"
-                    placeholder="Client Secret"
+                    placeholder="PAT/Client Secret"
                     value={azureCreds.clientSecret}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, clientSecret: e.target.value })

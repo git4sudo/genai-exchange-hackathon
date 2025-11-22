@@ -64,9 +64,10 @@ function DashboardInner() {
   const [hasStoredCases, setHasStoredCases] = useState(false);
   const [loadingStoredCases, setLoadingStoredCases] = useState(false);
   const jiraProjectKey = searchParams.get("jiraProjectKey");
+  const pAzureProjectId = searchParams.get("azureProjectId");
 
   console.log(
-    `Project Name:${projectName}, Description${pDescription}, ProjecctId:${projectId}, jiraProjectKey:${jiraProjectKey}, integrationType:${integrationType}`
+    `Project Name:${projectName}, Description${pDescription}, ProjecctId:${projectId}, jiraProjectKey:${jiraProjectKey}, integrationType:${integrationType}, azureProjectId:${pAzureProjectId}`
   );
 
   useEffect(() => {
