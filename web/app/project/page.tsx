@@ -110,6 +110,26 @@ export default function ProjectPage() {
     loadProjects();
   }, [user]);
 
+  function buildDashboardUrl(p: any) {
+    const query: any = {
+      projectId: p.id,
+      projectName: p.projectName,
+      description: p.description,
+      integrationType: p.integrationType,
+    };
+
+    if (p.integrationType === "Jira") {
+      query.jiraProjectKey = p.jiraProjectId || "KAN";
+    }
+
+    if (p.integrationType === "Azure") {
+      query.azureProjectId = p.azureProjectId || "";
+    }
+
+    return `/dashboard?${new URLSearchParams(query).toString()}`;
+  }
+
+
   const ProjectCardList = ({
     title,
     projects,
@@ -147,17 +167,7 @@ export default function ProjectPage() {
               <motion.div
                 key={p.id}
                 whileHover={{ scale: 1.01 }}
-                onClick={() =>
-                  router.push(
-                    `/dashboard?projectId=${p.id}&projectName=${encodeURIComponent(
-                      p.projectName
-                    )}&description=${encodeURIComponent(
-                      p.description
-                    )}&jiraProjectKey=${encodeURIComponent(
-                      p.jiraProjectId  || "KAN"
-                    )}&integrationType=${encodeURIComponent(p.integrationType)}`
-                  )
-                }
+                onClick={() => router.push(buildDashboardUrl(p))}
                 className="cursor-pointer p-4 rounded-xl border border-slate-100 hover:bg-emerald-50 transition flex justify-between items-center"
               >
                 <div>

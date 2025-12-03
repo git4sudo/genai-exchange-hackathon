@@ -255,7 +255,7 @@ export default function ProfilePage() {
           </div>
 
          {/* Azure Credentials */}
-          <div className="mt-8">
+       { /*  <div className="mt-8">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-800">Azure Credentials</h2>
               <button
@@ -293,7 +293,7 @@ export default function ProfilePage() {
                       setAzureCreds({ ...azureCreds, clientId: e.target.value })
                     }
                     className="w-full rounded-lg border p-2 text-sm"
-                  /> */}
+                  /> 
                   <input
                     type="password"
                     placeholder="PAT/Client Secret"
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                 Azure credentials saved ({`Client Id:${azureCreds.clientId.slice(0, 6)}, Tenant Id${azureCreds.tenantId}`}…)
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Logout */}
           <div className="mt-10 flex justify-end">
