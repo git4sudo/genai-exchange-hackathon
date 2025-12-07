@@ -10,6 +10,7 @@ export default function NewProjectPage() {
   const [projectName, setProjectName] = useState("");
   const [jiraProject, setJiraProject] = useState("");
   const [description, setDescription] = useState("");
+  const [azureProject, setAzureProject] = useState("");
   const [integrationType, setIntegrationType] = useState("Jira");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function NewProjectPage() {
         uid: user.uid,
         projectName: projectName,
         jiraProjectId: jiraProject,
+        azureProjectId: azureProject,
         description,
         integrationType,
         createdAt: Timestamp.now(),
@@ -32,8 +34,26 @@ export default function NewProjectPage() {
 
       const newProjectId = docRef.id;
 
-      router.push(`/dashboard?projectName=${encodeURIComponent(projectName)}&description=${encodeURIComponent(description)}&projectId=${newProjectId}&jiraProjectKey=${encodeURIComponent(jiraProject)}&integrationType=${encodeURIComponent(integrationType)}`);
-    } catch (error) {
+      const query: any = {
+        projectName,
+        description,
+        projectId: newProjectId,
+        integrationType,
+      };
+
+      if (integrationType === "Jira") {
+        query.jiraProjectKey = jiraProject;
+      }
+
+      if (integrationType === "Azure") {
+        query.azureProjectId = azureProject;
+      }
+
+      const searchParams = new URLSearchParams(query).toString();
+
+      router.push(`/dashboard?${searchParams}`);
+
+     } catch (error) {
       console.error("Error creating project:", error);
       alert("Something went wrong!");
     } finally {
@@ -68,7 +88,7 @@ export default function NewProjectPage() {
               Integration Type
             </label>
             <div className="flex gap-6">
-              {["Jira", "Azure", "Polarion"].map((option) => (
+              {["Jira"].map((option) => (
                 <label key={option} className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -97,6 +117,21 @@ export default function NewProjectPage() {
             />
           </div>
         )} 
+
+        {/* {integrationType === "Azure" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Azure Project URL
+            </label>
+            <input
+              type="text"
+              value={azureProject}
+              onChange={(e) => setAzureProject(e.target.value)}
+              required={integrationType === "Azure"}
+              className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        )}  */}
 
           <div>
             <label className="block text-sm font-medium text-slate-700">

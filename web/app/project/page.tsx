@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, doc, getDoc, query, where, orderBy } from "firebase/firestore";
 import { useAuth } from "@/lib/firebase/AuthContext";
 import { db } from "@/lib/firebase/initFirebase";
 
@@ -26,47 +26,57 @@ export default function ProjectPage() {
   const [showAllOwned, setShowAllOwned] = useState(false);
   const [showAllShared, setShowAllShared] = useState(false);
 
-  // 🔹 Fetch projects for user (moved outside useEffect)
+  // Fetch projects owned by or shared with the user
   const fetchProjectsForUser = async (user: any) => {
     const userEmail = user.email;
     const projectsRef = collection(db, "projects");
 
-    // Owned projects
     const ownedQuery = query(
       projectsRef,
       where("uid", "==", user.uid),
       orderBy("createdAt", "desc")
     );
-
-    const ownedSnapshot = await getDocs(ownedQuery);
-    const owned = ownedSnapshot.docs.map((d) => ({
+    const ownedSnap = await getDocs(ownedQuery);
+    const owned = ownedSnap.docs.map((d) => ({
       id: d.id,
       ...d.data(),
       role: "Owner",
     }));
 
-    // Shared projects
-    const shared: any[] = [];
-    const allProjectsSnapshot = await getDocs(projectsRef);
-    for (const projectDoc of allProjectsSnapshot.docs) {
-      const membersRef = collection(projectDoc.ref, "members");
-      const membersSnapshot = await getDocs(membersRef);
-      const isMember = membersSnapshot.docs.some(
-        (m) => m.data().email === userEmail
-      );
-      if (isMember) {
-        shared.push({
-          id: projectDoc.id,
-          ...projectDoc.data(),
-          role: "Collaborator",
-        });
-      }
-    }
+    const memberQuery = query(
+      collectionGroup(db, "members"),
+      where("email", "==", userEmail)
+    );
 
-    return { owned, shared };
+    const memberSnap = await getDocs(memberQuery);
+
+    // extract unique project IDs
+    const sharedProjectIds = [
+      ...new Set(memberSnap.docs.map((m) => m.ref.parent.parent!.id)),
+    ].filter((pid) => pid !== user.uid); // avoid duplicates
+
+    // fetch projects in parallel
+    const shared = await Promise.all(
+      sharedProjectIds.map(async (pid) => {
+        const pRef = doc(db, "projects", pid);
+        const pSnap = await getDoc(pRef);
+        if (!pSnap.exists()) return null;
+
+        return {
+          id: pSnap.id,
+          ...pSnap.data(),
+          role: "Collaborator",
+        };
+      })
+    );
+
+    return {
+      owned,
+      shared: shared.filter(Boolean),
+    };
   };
 
-  // 🔹 Main useEffect to load projects
+  // Load projects on mount and when user changes
   useEffect(() => {
     if (!user) return;
 
@@ -80,7 +90,7 @@ export default function ProjectPage() {
             id: project.id,
             projectName: project.projectName,
             description: project.description,
-            jiraProjectId : project.jiraProjectId ,
+            jiraProjectId: project.jiraProjectId,
             integrationType: project.integrationType,
             createdAt: project.createdAt
               ? new Date(project.createdAt.seconds * 1000).toLocaleString()
@@ -100,7 +110,26 @@ export default function ProjectPage() {
     loadProjects();
   }, [user]);
 
-  // 🔹 Project Card List component
+  function buildDashboardUrl(p: any) {
+    const query: any = {
+      projectId: p.id,
+      projectName: p.projectName,
+      description: p.description,
+      integrationType: p.integrationType,
+    };
+
+    if (p.integrationType === "Jira") {
+      query.jiraProjectKey = p.jiraProjectId || "KAN";
+    }
+
+    if (p.integrationType === "Azure") {
+      query.azureProjectId = p.azureProjectId || "";
+    }
+
+    return `/dashboard?${new URLSearchParams(query).toString()}`;
+  }
+
+
   const ProjectCardList = ({
     title,
     projects,
@@ -138,17 +167,7 @@ export default function ProjectPage() {
               <motion.div
                 key={p.id}
                 whileHover={{ scale: 1.01 }}
-                onClick={() =>
-                  router.push(
-                    `/dashboard?projectId=${p.id}&projectName=${encodeURIComponent(
-                      p.projectName
-                    )}&description=${encodeURIComponent(
-                      p.description
-                    )}&jiraProjectKey=${encodeURIComponent(
-                      p.jiraProjectId  || "KAN"
-                    )}&integrationType=${encodeURIComponent(p.integrationType)}`
-                  )
-                }
+                onClick={() => router.push(buildDashboardUrl(p))}
                 className="cursor-pointer p-4 rounded-xl border border-slate-100 hover:bg-emerald-50 transition flex justify-between items-center"
               >
                 <div>

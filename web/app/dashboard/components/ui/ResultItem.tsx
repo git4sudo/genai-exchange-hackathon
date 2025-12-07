@@ -152,16 +152,16 @@ export const ResultItem = forwardRef<ResultItemHandle, Props>(
         if (jiraLink) return;
         if (integration_Type === "Jira") await pushToJira();
         else if (integration_Type === "Azure") {
-          setPushing(true);
+        setPushing(true);
           try {
             // onClick={}
             showNotification("Pushed to Azure successfully.");
           } catch (e) {
-            console.error(e);
-            showNotification("Error pushing to Azure", true);
-          } finally {
-            setPushing(false);
-          }
+        console.error(e);
+        showNotification("Error pushing to Azure", true);
+      } finally {
+        setPushing(false);
+      }
         }
       },
     }));
@@ -226,7 +226,7 @@ export const ResultItem = forwardRef<ResultItemHandle, Props>(
                 {!pushing && !jiraLink && (
                   <button
                     onClick={pushToJira}
-                    className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs hover:bg-slate-50 transition"
+                    className="rounded-md border border-slate-200 bg-emerald-600 px-3 py-1.5 text-xs hover:bg-emerald-700 transition"
                   >
                     Push to Jira
                   </button>

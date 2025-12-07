@@ -255,7 +255,7 @@ export default function ProfilePage() {
           </div>
 
          {/* Azure Credentials */}
-          <div className="mt-8">
+       { /*  <div className="mt-8">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-800">Azure Credentials</h2>
               <button
@@ -276,9 +276,9 @@ export default function ProfilePage() {
                   className="mt-4 space-y-3 overflow-hidden"
                   onSubmit={handleSaveAzure}
                 >
-                  <input
+                  {/* <input
                     type="text"
-                    placeholder="Tenant ID"
+                    placeholder="Azure Organization/Tenant ID"
                     value={azureCreds.tenantId}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, tenantId: e.target.value })
@@ -287,16 +287,16 @@ export default function ProfilePage() {
                   />
                   <input
                     type="text"
-                    placeholder="Client ID"
+                    placeholder="Project/Client ID"
                     value={azureCreds.clientId}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, clientId: e.target.value })
                     }
                     className="w-full rounded-lg border p-2 text-sm"
-                  />
+                  /> 
                   <input
                     type="password"
-                    placeholder="Client Secret"
+                    placeholder="PAT/Client Secret"
                     value={azureCreds.clientSecret}
                     onChange={(e) =>
                       setAzureCreds({ ...azureCreds, clientSecret: e.target.value })
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                 Azure credentials saved ({`Client Id:${azureCreds.clientId.slice(0, 6)}, Tenant Id${azureCreds.tenantId}`}…)
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Logout */}
           <div className="mt-10 flex justify-end">
